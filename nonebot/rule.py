@@ -103,7 +103,12 @@ class TrieRule:
         if event.get_type() != "message":
             return prefix
 
-        message = event.get_message()
+        message = []
+        for i, seg in enumerate(event.get_message()):
+            if seg.is_text() and str(seg).strip():
+                message = event.get_message()[i:]
+        if not message:
+            return prefix
         message_seg: MessageSegment = message[0]
         if message_seg.is_text():
             segment_text = str(message_seg).lstrip()
