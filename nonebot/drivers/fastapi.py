@@ -19,18 +19,20 @@ FrontMatter:
 import logging
 import contextlib
 from functools import wraps
+from typing_extensions import override
 from typing import Any, Dict, List, Tuple, Union, Optional
 
 from pydantic import BaseSettings
 
 from nonebot.config import Env
-from nonebot.typing import overrides
+from nonebot.drivers import ASGIMixin
 from nonebot.exception import WebSocketClosed
 from nonebot.internal.driver import FileTypes
+from nonebot.drivers import Driver as BaseDriver
 from nonebot.config import Config as NoneBotConfig
 from nonebot.drivers import Request as BaseRequest
 from nonebot.drivers import WebSocket as BaseWebSocket
-from nonebot.drivers import ReverseDriver, HTTPServerSetup, WebSocketServerSetup
+from nonebot.drivers import HTTPServerSetup, WebSocketServerSetup
 
 from ._lifespan import LIFESPAN_FUNC, Lifespan
 
@@ -41,7 +43,8 @@ try:
     from starlette.websockets import WebSocket, WebSocketState, WebSocketDisconnect
 except ModuleNotFoundError as e:  # pragma: no cover
     raise ImportError(
-        "Please install FastAPI by using `pip install nonebot2[fastapi]`"
+        "Please install FastAPI first to use this driver. "
+        "Install with pip: `pip install nonebot2[fastapi]`"
     ) from e
 
 
@@ -86,11 +89,11 @@ class Config(BaseSettings):
         extra = "ignore"
 
 
-class Driver(ReverseDriver):
+class Driver(BaseDriver, ASGIMixin):
     """FastAPI 驱动框架。"""
 
     def __init__(self, env: Env, config: NoneBotConfig):
-        super(Driver, self).__init__(env, config)
+        super().__init__(env, config)
 
         self.fastapi_config: Config = Config(**config.dict())
 
@@ -105,30 +108,30 @@ class Driver(ReverseDriver):
         )
 
     @property
-    @overrides(ReverseDriver)
+    @override
     def type(self) -> str:
         """驱动名称: `fastapi`"""
         return "fastapi"
 
     @property
-    @overrides(ReverseDriver)
+    @override
     def server_app(self) -> FastAPI:
         """`FastAPI APP` 对象"""
         return self._server_app
 
     @property
-    @overrides(ReverseDriver)
+    @override
     def asgi(self) -> FastAPI:
         """`FastAPI APP` 对象"""
         return self._server_app
 
     @property
-    @overrides(ReverseDriver)
+    @override
     def logger(self) -> logging.Logger:
         """fastapi 使用的 logger"""
         return logging.getLogger("fastapi")
 
-    @overrides(ReverseDriver)
+    @override
     def setup_http_server(self, setup: HTTPServerSetup):
         async def _handle(request: Request) -> Response:
             return await self._handle_http(request, setup)
@@ -141,7 +144,7 @@ class Driver(ReverseDriver):
             include_in_schema=self.fastapi_config.fastapi_include_adapter_schema,
         )
 
-    @overrides(ReverseDriver)
+    @override
     def setup_websocket_server(self, setup: WebSocketServerSetup) -> None:
         async def _handle(websocket: WebSocket) -> None:
             await self._handle_ws(websocket, setup)
@@ -152,11 +155,11 @@ class Driver(ReverseDriver):
             name=setup.name,
         )
 
-    @overrides(ReverseDriver)
+    @override
     def on_startup(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         return self._lifespan.on_startup(func)
 
-    @overrides(ReverseDriver)
+    @override
     def on_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         return self._lifespan.on_shutdown(func)
 
@@ -168,7 +171,7 @@ class Driver(ReverseDriver):
         finally:
             await self._lifespan.shutdown()
 
-    @overrides(ReverseDriver)
+    @override
     def run(
         self,
         host: Optional[str] = None,
@@ -178,7 +181,7 @@ class Driver(ReverseDriver):
         **kwargs,
     ):
         """使用 `uvicorn` 启动 FastAPI"""
-        super().run(host, port, app, **kwargs)
+        super().run(host, port, app=app, **kwargs)
         LOGGING_CONFIG = {
             "version": 1,
             "disable_existing_loggers": False,
@@ -267,30 +270,30 @@ class Driver(ReverseDriver):
 class FastAPIWebSocket(BaseWebSocket):
     """FastAPI WebSocket Wrapper"""
 
-    @overrides(BaseWebSocket)
+    @override
     def __init__(self, *, request: BaseRequest, websocket: WebSocket):
         super().__init__(request=request)
         self.websocket = websocket
 
     @property
-    @overrides(BaseWebSocket)
+    @override
     def closed(self) -> bool:
         return (
             self.websocket.client_state == WebSocketState.DISCONNECTED
             or self.websocket.application_state == WebSocketState.DISCONNECTED
         )
 
-    @overrides(BaseWebSocket)
+    @override
     async def accept(self) -> None:
         await self.websocket.accept()
 
-    @overrides(BaseWebSocket)
+    @override
     async def close(
         self, code: int = status.WS_1000_NORMAL_CLOSURE, reason: str = ""
     ) -> None:
         await self.websocket.close(code, reason)
 
-    @overrides(BaseWebSocket)
+    @override
     async def receive(self) -> Union[str, bytes]:
         # assert self.websocket.application_state == WebSocketState.CONNECTED
         msg = await self.websocket.receive()
@@ -298,21 +301,21 @@ class FastAPIWebSocket(BaseWebSocket):
             raise WebSocketClosed(msg["code"])
         return msg["text"] if "text" in msg else msg["bytes"]
 
-    @overrides(BaseWebSocket)
+    @override
     @catch_closed
     async def receive_text(self) -> str:
         return await self.websocket.receive_text()
 
-    @overrides(BaseWebSocket)
+    @override
     @catch_closed
     async def receive_bytes(self) -> bytes:
         return await self.websocket.receive_bytes()
 
-    @overrides(BaseWebSocket)
+    @override
     async def send_text(self, data: str) -> None:
         await self.websocket.send({"type": "websocket.send", "text": data})
 
-    @overrides(BaseWebSocket)
+    @override
     async def send_bytes(self, data: bytes) -> None:
         await self.websocket.send({"type": "websocket.send", "bytes": data})
 

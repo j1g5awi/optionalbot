@@ -1,6 +1,6 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <p align="center">
-  <a href="https://v2.nonebot.dev/"><img src="https://v2.nonebot.dev/logo.png" width="200" height="200" alt="nonebot"></a>
+  <a href="https://nonebot.dev/"><img src="https://nonebot.dev/logo.png" width="200" height="200" alt="nonebot"></a>
 </p>
 
 <div align="center">
@@ -19,9 +19,19 @@ _✨ 跨平台 Python 异步机器人框架 ✨_
     <img src="https://img.shields.io/github/license/nonebot/nonebot2" alt="license">
   </a>
   <a href="https://pypi.python.org/pypi/nonebot2">
-    <img src="https://img.shields.io/pypi/v/nonebot2" alt="pypi">
+    <img src="https://img.shields.io/pypi/v/nonebot2?logo=python&logoColor=edb641" alt="pypi">
   </a>
-  <img src="https://img.shields.io/badge/python-3.8+-blue" alt="python">
+  <img src="https://img.shields.io/badge/python-3.8+-blue?logo=python&logoColor=edb641" alt="python">
+  <a href="https://github.com/psf/black">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg?logo=python&logoColor=edb641" alt="black">
+  </a>
+  <a href="https://github.com/Microsoft/pyright">
+    <img src="https://img.shields.io/badge/types-pyright-797952.svg?logo=python&logoColor=edb641" alt="pyright">
+  </a>
+  <a href="https://github.com/astral-sh/ruff">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json" alt="ruff">
+  </a>
+  <br />
   <a href="https://codecov.io/gh/nonebot/nonebot2">
     <img src="https://codecov.io/gh/nonebot/nonebot2/branch/master/graph/badge.svg?token=2P0G0VS7N4" alt="codecov"/>
   </a>
@@ -31,12 +41,21 @@ _✨ 跨平台 Python 异步机器人框架 ✨_
   <a href="https://results.pre-commit.ci/latest/github/nonebot/nonebot2/master">
     <img src="https://results.pre-commit.ci/badge/github/nonebot/nonebot2/master.svg" alt="pre-commit" />
   </a>
+  <a href="https://github.com/nonebot/nonebot2/actions/workflows/pyright.yml">
+    <img src="https://github.com/nonebot/nonebot2/actions/workflows/pyright.yml/badge.svg?branch=master&event=push" alt="pyright">
+  </a>
+  <a href="https://github.com/nonebot/nonebot2/actions/workflows/ruff.yml">
+    <img src="https://github.com/nonebot/nonebot2/actions/workflows/ruff.yml/badge.svg?branch=master&event=push" alt="ruff">
+  </a>
   <br />
   <a href="https://onebot.dev/">
     <img src="https://img.shields.io/badge/OneBot-v11-black?style=social&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABABAMAAABYR2ztAAAAIVBMVEUAAAAAAAADAwMHBwceHh4UFBQNDQ0ZGRkoKCgvLy8iIiLWSdWYAAAAAXRSTlMAQObYZgAAAQVJREFUSMftlM0RgjAQhV+0ATYK6i1Xb+iMd0qgBEqgBEuwBOxU2QDKsjvojQPvkJ/ZL5sXkgWrFirK4MibYUdE3OR2nEpuKz1/q8CdNxNQgthZCXYVLjyoDQftaKuniHHWRnPh2GCUetR2/9HsMAXyUT4/3UHwtQT2AggSCGKeSAsFnxBIOuAggdh3AKTL7pDuCyABcMb0aQP7aM4AnAbc/wHwA5D2wDHTTe56gIIOUA/4YYV2e1sg713PXdZJAuncdZMAGkAukU9OAn40O849+0ornPwT93rphWF0mgAbauUrEOthlX8Zu7P5A6kZyKCJy75hhw1Mgr9RAUvX7A3csGqZegEdniCx30c3agAAAABJRU5ErkJggg==" alt="onebot">
   </a>
   <a href="https://onebot.dev/">
     <img src="https://img.shields.io/badge/OneBot-v12-black?style=social&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABABAMAAABYR2ztAAAAIVBMVEUAAAAAAAADAwMHBwceHh4UFBQNDQ0ZGRkoKCgvLy8iIiLWSdWYAAAAAXRSTlMAQObYZgAAAQVJREFUSMftlM0RgjAQhV+0ATYK6i1Xb+iMd0qgBEqgBEuwBOxU2QDKsjvojQPvkJ/ZL5sXkgWrFirK4MibYUdE3OR2nEpuKz1/q8CdNxNQgthZCXYVLjyoDQftaKuniHHWRnPh2GCUetR2/9HsMAXyUT4/3UHwtQT2AggSCGKeSAsFnxBIOuAggdh3AKTL7pDuCyABcMb0aQP7aM4AnAbc/wHwA5D2wDHTTe56gIIOUA/4YYV2e1sg713PXdZJAuncdZMAGkAukU9OAn40O849+0ornPwT93rphWF0mgAbauUrEOthlX8Zu7P5A6kZyKCJy75hhw1Mgr9RAUvX7A3csGqZegEdniCx30c3agAAAABJRU5ErkJggg==" alt="onebot">
+  </a>
+  <a href="https://bot.q.qq.com/wiki/">
+    <img src="https://img.shields.io/badge/QQ-Bot-lightgrey?style=social&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTIuODIgMTMwLjg5Ij48ZyBkYXRhLW5hbWU9IuWbvuWxgiAyIj48ZyBkYXRhLW5hbWU9IuWbvuWxgiAxIj48cGF0aCBkPSJNNTUuNjMgMTMwLjhjLTcgMC0xMy45LjA4LTIwLjg2IDAtMTkuMTUtLjI1LTMxLjcxLTExLjQtMzQuMjItMzAuMy00LjA3LTMwLjY2IDE0LjkzLTU5LjIgNDQuODMtNjYuNjQgMi0uNTEgNS4yMS0uMzEgNS4yMS0xLjYzIDAtMi4xMy4xNC0yLjEzLjE0LTUuNTcgMC0uODktMS4zLTEuNDYtMi4yMi0yLjMxLTYuNzMtNi4yMy03LjY3LTEzLjQxLTEtMjAuMTggNS40LTUuNTIgMTEuODctNS40IDE3LjgtLjU5IDYuNDkgNS4yNiA2LjMxIDEzLjA4LS44NiAyMS0uNjguNzQtMS43OCAxLjYtMS43OCAyLjY3djQuMjFjMCAxLjM1IDIuMiAxLjYyIDQuNzkgMi4zNSAzMS4wOSA4LjY1IDQ4LjE3IDM0LjEzIDQ1IDY2LjM3LTEuNzYgMTguMTUtMTQuNTYgMzAuMjMtMzIuNyAzMC42My04LjAyLjE5LTE2LjA3LS4wMS0yNC4xMy0uMDF6IiBmaWxsPSIjMDI5OWZlIi8+PHBhdGggZD0iTTMxLjQ2IDExOC4zOGMtMTAuNS0uNjktMTYuOC02Ljg2LTE4LjM4LTE3LjI3LTMtMTkuNDIgMi43OC0zNS44NiAxOC40Ni00Ny44MyAxNC4xNi0xMC44IDI5Ljg3LTEyIDQ1LjM4LTMuMTkgMTcuMjUgOS44NCAyNC41OSAyNS44MSAyNCA0NS4yOS0uNDkgMTUuOS04LjQyIDIzLjE0LTI0LjM4IDIzLjUtNi41OS4xNC0xMy4xOSAwLTE5Ljc5IDAiIGZpbGw9IiNmZWZlZmUiLz48cGF0aCBkPSJNNDYuMDUgNzkuNThjLjA5IDUgLjIzIDkuODItNyA5Ljc3LTcuODItLjA2LTYuMS01LjY5LTYuMjQtMTAuMTktLjE1LTQuODItLjczLTEwIDYuNzMtOS44NHM2LjM3IDUuNTUgNi41MSAxMC4yNnoiIGZpbGw9IiMxMDlmZmUiLz48cGF0aCBkPSJNODAuMjcgNzkuMjdjLS41MyAzLjkxIDEuNzUgOS42NC01Ljg4IDEwLTcuNDcuMzctNi44MS00LjgyLTYuNjEtOS41LjItNC4zMi0xLjgzLTEwIDUuNzgtMTAuNDJzNi41OSA0Ljg5IDYuNzEgOS45MnoiIGZpbGw9IiMwODljZmUiLz48L2c+PC9nPjwvc3ZnPg==" alt="QQ">
   </a>
   <a href="https://core.telegram.org/bots/api">
     <img src="https://img.shields.io/badge/telegram-Bot-lightgrey?style=social&logo=telegram" alt="telegram">
@@ -46,9 +65,6 @@ _✨ 跨平台 Python 异步机器人框架 ✨_
   </a>
   <a href="https://docs.github.com/en/developers/apps">
     <img src="https://img.shields.io/badge/GitHub-Bot-181717?style=social&logo=github" alt="github"/>
-  </a>
-  <a href="https://bot.q.qq.com/wiki/">
-    <img src="https://img.shields.io/badge/QQ%E9%A2%91%E9%81%93-Bot-lightgrey?style=social&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTIuODIgMTMwLjg5Ij48ZyBkYXRhLW5hbWU9IuWbvuWxgiAyIj48ZyBkYXRhLW5hbWU9IuWbvuWxgiAxIj48cGF0aCBkPSJNNTUuNjMgMTMwLjhjLTcgMC0xMy45LjA4LTIwLjg2IDAtMTkuMTUtLjI1LTMxLjcxLTExLjQtMzQuMjItMzAuMy00LjA3LTMwLjY2IDE0LjkzLTU5LjIgNDQuODMtNjYuNjQgMi0uNTEgNS4yMS0uMzEgNS4yMS0xLjYzIDAtMi4xMy4xNC0yLjEzLjE0LTUuNTcgMC0uODktMS4zLTEuNDYtMi4yMi0yLjMxLTYuNzMtNi4yMy03LjY3LTEzLjQxLTEtMjAuMTggNS40LTUuNTIgMTEuODctNS40IDE3LjgtLjU5IDYuNDkgNS4yNiA2LjMxIDEzLjA4LS44NiAyMS0uNjguNzQtMS43OCAxLjYtMS43OCAyLjY3djQuMjFjMCAxLjM1IDIuMiAxLjYyIDQuNzkgMi4zNSAzMS4wOSA4LjY1IDQ4LjE3IDM0LjEzIDQ1IDY2LjM3LTEuNzYgMTguMTUtMTQuNTYgMzAuMjMtMzIuNyAzMC42My04LjAyLjE5LTE2LjA3LS4wMS0yNC4xMy0uMDF6IiBmaWxsPSIjMDI5OWZlIi8+PHBhdGggZD0iTTMxLjQ2IDExOC4zOGMtMTAuNS0uNjktMTYuOC02Ljg2LTE4LjM4LTE3LjI3LTMtMTkuNDIgMi43OC0zNS44NiAxOC40Ni00Ny44MyAxNC4xNi0xMC44IDI5Ljg3LTEyIDQ1LjM4LTMuMTkgMTcuMjUgOS44NCAyNC41OSAyNS44MSAyNCA0NS4yOS0uNDkgMTUuOS04LjQyIDIzLjE0LTI0LjM4IDIzLjUtNi41OS4xNC0xMy4xOSAwLTE5Ljc5IDAiIGZpbGw9IiNmZWZlZmUiLz48cGF0aCBkPSJNNDYuMDUgNzkuNThjLjA5IDUgLjIzIDkuODItNyA5Ljc3LTcuODItLjA2LTYuMS01LjY5LTYuMjQtMTAuMTktLjE1LTQuODItLjczLTEwIDYuNzMtOS44NHM2LjM3IDUuNTUgNi41MSAxMC4yNnoiIGZpbGw9IiMxMDlmZmUiLz48cGF0aCBkPSJNODAuMjcgNzkuMjdjLS41MyAzLjkxIDEuNzUgOS42NC01Ljg4IDEwLTcuNDcuMzctNi44MS00LjgyLTYuNjEtOS41LjItNC4zMi0xLjgzLTEwIDUuNzgtMTAuNDJzNi41OSA0Ljg5IDYuNzEgOS45MnoiIGZpbGw9IiMwODljZmUiLz48L2c+PC9nPjwvc3ZnPg==" alt="QQ频道">
   </a>
   <!-- <a href="https://ding-doc.dingtalk.com/document#/org-dev-guide/elzz1p">
     <img src="https://img.shields.io/badge/%E9%92%89%E9%92%89-Bot-lightgrey?style=social&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAnFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4jUzeAAAAM3RSTlMAQKSRaA+/f0YyFevh29R3cyklIfrlyrGsn41tVUs48c/HqJm9uZdhX1otGwkF9IN8V1CX0Q+IAAABY0lEQVRYw+3V2W7CMBAF0JuNQAhhX9OEfYdu9///rUVWpagE27Ef2gfO+0zGozsKnv6bMGzAhkNytIe5gDdzrwtTCwrbI8x4/NF668NAxgI3Q3UtFi3TyPwNQtPLUUmDd8YfqGLNe4v22XwEYb5zoOuF5baHq2UHtsKe5ivWfGAwrWu2mC34QM0PoCAuqZdOmiwV+5BLyMRtZ7dTSEcs48rzWfzwptMLyzpApka1SJ5FtR4kfCqNIBPEVDmqoqgwUYY5plQOlf6UEjNoOPnuKB6wzDyCrks///TDza8+PnR109WQdxLo8RKWq0PPnuXG0OXKQ6wWLFnCg75uYYbhmMIVVdQ709q33aHbGIj6Duz+2k1HQFX9VwqmY8xYsEJll2ahvhWgsjYLHFRXvIi2Qb0jzMQCzC3FAoydxCma88UCzE3JCWwkjCNYyMUCzHX4DiuTMawEwwhW6hnshPhjZzzJfAH0YacpbmRd7QAAAABJRU5ErkJggg==" alt="dingtalk"> -->
@@ -69,16 +85,16 @@ _✨ 跨平台 Python 异步机器人框架 ✨_
 </p>
 
 <p align="center">
-  <a href="https://v2.nonebot.dev/">文档</a>
+  <a href="https://nonebot.dev/">文档</a>
   ·
-  <a href="https://v2.nonebot.dev/docs/quick-start">快速上手</a>
+  <a href="https://nonebot.dev/docs/quick-start">快速上手</a>
   ·
   <a href="#插件">文档打不开？</a>
 </p>
 
 <p align="center">
   <a href="https://asciinema.org/a/569440">
-    <img src="https://v2.nonebot.dev/img/setup.svg">
+    <img src="https://nonebot.dev/img/setup.svg">
   </a>
 </p>
 
@@ -90,37 +106,42 @@ NoneBot2 是一个现代、跨平台、可扩展的 Python 聊天机器人框架
 
 - 异步优先：基于 Python 的异步特性，即使是~~非常~~大量的消息，也能吞吐自如
 - 易于开发：配合 NB-CLI 脚手架，代码编写上手简单，没有过多的冗余代码，可以让开发者专注于业务逻辑
-- 生而可靠：100% 类型注解覆盖，配合编辑器的类型推导功能，能将绝大多数的 Bug 杜绝在编辑器中 ([编辑器支持](https://v2.nonebot.dev/docs/editor-support))
+- 生而可靠：100% 类型注解覆盖，配合编辑器的类型推导功能，能将绝大多数的 Bug 杜绝在编辑器中 ([编辑器支持](https://nonebot.dev/docs/editor-support))
 - 社区丰富：社区用户众多，直接和间接用户超过十万人，每天都有大量的活跃用户 ([社区资源](#社区资源))
 - 海纳百川：一个框架，支持多个聊天软件平台，可自定义通信协议
 
-  |                                  协议名称                                   | 状态 |                                注释                                |
-  | :-------------------------------------------------------------------------: | :--: | :----------------------------------------------------------------: |
-  |                     [OneBot 协议](https://onebot.dev/)                      |  ✅  | 支持 QQ、TG、微信公众号等[平台](https://onebot.dev/ecosystem.html) |
-  |               [Telegram](https://core.telegram.org/bots/api)                |  ✅  |                                                                    |
-  |             [飞书](https://open.feishu.cn/document/home/index)              |  ✅  |                                                                    |
-  |            [GitHub](https://docs.github.com/en/developers/apps)             |  ✅  |                       GitHub APP & OAuth APP                       |
-  |                    [QQ 频道](https://bot.q.qq.com/wiki/)                    |  ✅  |                          官方接口调整较多                          |
-  |                 [钉钉](https://open.dingtalk.com/document/)                 |  🤗  |                     寻找 Maintainer (暂不可用)                     |
-  |                                   Console                                   |  ✅  |                             控制台交互                             |
-  |                   [开黑啦](https://developer.kookapp.cn/)                   |  ↗️  |                             由社区贡献                             |
-  |            [Mirai](https://docs.mirai.mamoe.net/mirai-api-http/)            |  ↗️  |                             由社区贡献                             |
-  |         [Ntchat](https://github.com/JustUndertaker/adapter-ntchat)          |  ↗️  |                             由社区贡献                             |
-  |  [MineCraft (Spigot)](https://github.com/17TheWord/nonebot-adapter-spigot)  |  ↗️  |                             由社区贡献                             |
-  |         [BiliBili Live](https://github.com/wwweww/adapter-bilibili)         |  ↗️  |                             由社区贡献                             |
-  | [Walle-Q (QQ 协议)](https://github.com/onebot-walle/nonebot_adapter_walleq) |  ↗️  |                             由社区贡献                             |
+  |                                                           协议名称                                                           | 状态 |                                   注释                                    |
+  | :--------------------------------------------------------------------------------------------------------------------------: | :--: | :-----------------------------------------------------------------------: |
+  |                   OneBot（[仓库](https://github.com/nonebot/adapter-onebot)，[协议](https://onebot.dev/)）                   |  ✅  | 支持 QQ、TG、微信公众号、KOOK 等[平台](https://onebot.dev/ecosystem.html) |
+  |         Telegram（[仓库](https://github.com/nonebot/adapter-telegram)，[协议](https://core.telegram.org/bots/api)）          |  ✅  |                                                                           |
+  |        飞书（[仓库](https://github.com/nonebot/adapter-feishu)，[协议](https://open.feishu.cn/document/home/index)）         |  ✅  |                                                                           |
+  |             GitHub（[仓库](https://github.com/nonebot/adapter-github)，[协议](https://docs.github.com/en/apps)）             |  ✅  |                          GitHub APP & OAuth APP                           |
+  |                   QQ（[仓库](https://github.com/nonebot/adapter-qq)，[协议](https://bot.q.qq.com/wiki/)）                    |  ✅  |                            QQ 官方接口调整较多                            |
+  |             钉钉（[仓库](https://github.com/nonebot/adapter-ding)，[协议](https://open.dingtalk.com/document/)）             |  🤗  |                        寻找 Maintainer（暂不可用）                        |
+  |                                Console（[仓库](https://github.com/nonebot/adapter-console)）                                 |  ✅  |                                控制台交互                                 |
+  |        Red （[仓库](https://github.com/nonebot/adapter-red)，[协议](https://chrononeko.github.io/QQNTRedProtocol/)）         |  ✅  |                                  QQ 协议                                  |
+  |               Satori（[仓库](https://github.com/nonebot/adapter-satori)，[协议](https://satori.js.org/zh-CN)）               |  ✅  |               支持 Onebot、TG、飞书、微信公众号、Koishi 等                |
+  |      Discord （[仓库](https://github.com/nonebot/adapter-discord)，[协议](https://discord.com/developers/docs/intro)）       |  ✅  |                             Discord Bot 协议                              |
+  |                  DoDo （[仓库](https://github.com/nonebot/adapter-dodo)，[协议](https://open.imdodo.com/)）                  |  ✅  |                               DoDo Bot 协议                               |
+  |        开黑啦（[仓库](https://github.com/Tian-que/nonebot-adapter-kaiheila)，[协议](https://developer.kookapp.cn/)）         |  ↗️  |                                由社区贡献                                 |
+  |    Mirai（[仓库](https://github.com/ieew/nonebot_adapter_mirai2)，[协议](https://docs.mirai.mamoe.net/mirai-api-http/)）     |  ↗️  |                            QQ 协议，由社区贡献                            |
+  |                              Ntchat（[仓库](https://github.com/JustUndertaker/adapter-ntchat)）                              |  ↗️  |                           微信协议，由社区贡献                            |
+  |                         MineCraft（[仓库](https://github.com/17TheWord/nonebot-adapter-minecraft)）                          |  ↗️  |                                由社区贡献                                 |
+  |                             BiliBili Live（[仓库](https://github.com/wwweww/adapter-bilibili)）                              |  ↗️  |                                由社区贡献                                 |
+  |                          Walle-Q（[仓库](https://github.com/onebot-walle/nonebot_adapter_walleq)）                           |  ↗️  |                            QQ 协议，由社区贡献                            |
+  | Villa（[仓库](https://github.com/CMHopeSunshine/nonebot-adapter-villa)，[协议](https://webstatic.mihoyo.com/vila/bot/doc/)） |  ↗️  |                     米游社大别野 Bot 协议，由社区贡献                     |
 
 - 坚实后盾：支持多种 web 框架，可自定义替换、组合
 
-  |                          驱动框架                          |  类型  |
-  | :--------------------------------------------------------: | :----: |
-  |          [FastAPI](https://fastapi.tiangolo.com/)          | 服务端 |
-  |   [Quart](https://pgjones.gitlab.io/quart/) (异步 Flask)   | 服务端 |
-  |       [aiohttp](https://docs.aiohttp.org/en/stable/)       | 客户端 |
-  |           [httpx](https://www.python-httpx.org/)           | 客户端 |
-  | [websockets](https://websockets.readthedocs.io/en/stable/) | 客户端 |
+  |                              驱动框架                               |  类型  |
+  | :-----------------------------------------------------------------: | :----: |
+  |              [FastAPI](https://fastapi.tiangolo.com/)               | 服务端 |
+  | [Quart](https://quart.palletsprojects.com/en/latest/)（异步 Flask） | 服务端 |
+  |           [aiohttp](https://docs.aiohttp.org/en/stable/)            | 客户端 |
+  |               [httpx](https://www.python-httpx.org/)                | 客户端 |
+  |     [websockets](https://websockets.readthedocs.io/en/stable/)      | 客户端 |
 
-更多：[概览](https://v2.nonebot.dev/docs/)
+更多：[概览](https://nonebot.dev/docs/)
 
 ## 什么不是 NoneBot2
 
@@ -132,7 +153,7 @@ NoneBot2 不是 NoneBot1 的替代品。事实上，它们都在被积极的维�
 
 ## 即刻开始
 
-~~完整~~文档可以在 [这里](https://v2.nonebot.dev/) 查看。
+~~完整~~文档可以在 [这里](https://nonebot.dev/) 查看。
 
 懒得看文档？下面是快速安装指南：
 
@@ -187,9 +208,8 @@ NoneBot2 不是 NoneBot1 的替代品。事实上，它们都在被积极的维�
   或者尝试以下镜像：
 
   - [文档镜像(中国境内)](https://nb2.baka.icu)
-  - [文档镜像(Vercel)](https://nonebot2-vercel-mirror.vercel.app)
 
-- 其他插件请查看 [商店](https://v2.nonebot.dev/store)
+- 其他插件请查看 [商店](https://nonebot.dev/store/plugins)
 
 ## 许可证
 
@@ -208,7 +228,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 请参考 [贡献指南](./CONTRIBUTING.md)
 
-### 鸣谢
+## 鸣谢
+
+### 赞助者
+
+感谢以下赞助者对 NoneBot 项目提供的资金支持：
+
+<a href="https://assets.nonebot.dev/sponsors.svg">
+  <img src='https://assets.nonebot.dev/sponsors.svg'/>
+</a>
+
+### 开发者
 
 感谢以下开发者对 NoneBot2 作出的贡献：
 

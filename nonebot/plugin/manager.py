@@ -6,6 +6,7 @@ FrontMatter:
     sidebar_position: 5
     description: nonebot.plugin.manager 模块
 """
+
 import sys
 import pkgutil
 import importlib
@@ -19,7 +20,7 @@ from typing import Set, Dict, List, Iterable, Optional, Sequence
 from nonebot.log import logger
 from nonebot.utils import escape_tag, path_to_module_name
 
-from .plugin import Plugin, PluginMetadata
+from .model import Plugin, PluginMetadata
 from . import (
     _managers,
     _new_plugin,
@@ -228,6 +229,7 @@ class PluginLoader(SourceFileLoader):
         # detect parent plugin before entering current plugin context
         parent_plugins = _current_plugin_chain.get()
         for pre_plugin in reversed(parent_plugins):
+            # ensure parent plugin is declared before current plugin
             if _managers.index(pre_plugin.manager) < _managers.index(self.manager):
                 plugin.parent_plugin = pre_plugin
                 pre_plugin.sub_plugins.add(plugin)

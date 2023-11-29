@@ -6,7 +6,7 @@ from dataclasses import asdict
 import pytest
 
 import nonebot
-from nonebot.plugin import Plugin, PluginManager, _managers
+from nonebot.plugin import Plugin, PluginManager, _managers, inherit_supported_adapters
 
 
 @pytest.mark.asyncio
@@ -22,11 +22,11 @@ async def test_load_plugin():
 
 
 @pytest.mark.asyncio
-async def test_load_plugins(load_plugin: Set[Plugin], load_example: Set[Plugin]):
+async def test_load_plugins(load_plugin: Set[Plugin], load_builtin_plugin: Set[Plugin]):
     loaded_plugins = {
         plugin for plugin in nonebot.get_loaded_plugins() if not plugin.parent_plugin
     }
-    assert loaded_plugins >= load_plugin | load_example
+    assert loaded_plugins >= load_plugin | load_builtin_plugin
 
     # check simple plugin
     assert "plugins.export" in sys.modules
@@ -49,7 +49,9 @@ async def test_load_nested_plugin():
     parent_plugin = nonebot.get_plugin("nested")
     sub_plugin = nonebot.get_plugin("nested_subplugin")
     sub_plugin2 = nonebot.get_plugin("nested_subplugin2")
-    assert parent_plugin and sub_plugin and sub_plugin2
+    assert parent_plugin
+    assert sub_plugin
+    assert sub_plugin2
     assert sub_plugin.parent_plugin is parent_plugin
     assert sub_plugin2.parent_plugin is parent_plugin
     assert parent_plugin.sub_plugins == {sub_plugin, sub_plugin2}
@@ -67,7 +69,7 @@ async def test_load_json():
 async def test_load_toml():
     nonebot.load_from_toml("./plugins.toml")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Cannot find"):
         nonebot.load_from_toml("./plugins.empty.toml")
 
     with pytest.raises(TypeError):
@@ -78,7 +80,7 @@ async def test_load_toml():
 async def test_bad_plugin():
     nonebot.load_plugins("bad_plugins")
 
-    assert nonebot.get_plugin("bad_plugins") is None
+    assert nonebot.get_plugin("bad_plugin") is None
 
 
 @pytest.mark.asyncio
@@ -128,7 +130,7 @@ async def test_require_not_found():
 
 @pytest.mark.asyncio
 async def test_plugin_metadata():
-    from plugins.metadata import Config
+    from plugins.metadata import Config, FakeAdapter
 
     plugin = nonebot.get_plugin("metadata")
     assert plugin
@@ -137,6 +139,43 @@ async def test_plugin_metadata():
         "name": "测试插件",
         "description": "测试插件元信息",
         "usage": "无法使用",
+        "type": "application",
+        "homepage": "https://nonebot.dev",
         "config": Config,
+        "supported_adapters": {"~onebot.v11", "plugins.metadata:FakeAdapter"},
         "extra": {"author": "NoneBot"},
+    }
+
+    assert plugin.metadata.get_supported_adapters() == {FakeAdapter}
+
+
+@pytest.mark.asyncio
+async def test_inherit_supported_adapters():
+    with pytest.raises(RuntimeError):
+        inherit_supported_adapters("some_plugin_not_exist")
+
+    with pytest.raises(ValueError, match="has no metadata!"):
+        inherit_supported_adapters("export")
+
+    echo = nonebot.get_plugin("echo")
+    assert echo
+    assert echo.metadata
+    assert inherit_supported_adapters("echo") is None
+
+    plugin_1 = nonebot.get_plugin("metadata")
+    assert plugin_1
+    assert plugin_1.metadata
+    assert inherit_supported_adapters("metadata") == {
+        "nonebot.adapters.onebot.v11",
+        "plugins.metadata:FakeAdapter",
+    }
+
+    plugin_2 = nonebot.get_plugin("metadata_2")
+    assert plugin_2
+    assert plugin_2.metadata
+    assert inherit_supported_adapters("metadata", "metadata_2") == {
+        "nonebot.adapters.onebot.v11"
+    }
+    assert inherit_supported_adapters("metadata", "echo", "metadata_2") == {
+        "nonebot.adapters.onebot.v11"
     }

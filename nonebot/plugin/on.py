@@ -4,16 +4,18 @@ FrontMatter:
     sidebar_position: 2
     description: nonebot.plugin.on 模块
 """
+
 import re
 import inspect
+import warnings
 from types import ModuleType
 from datetime import datetime, timedelta
 from typing import Any, Set, Dict, List, Type, Tuple, Union, Optional
 
 from nonebot.adapters import Event
-from nonebot.matcher import Matcher
 from nonebot.permission import Permission
 from nonebot.dependencies import Dependent
+from nonebot.matcher import Matcher, MatcherSource
 from nonebot.typing import T_State, T_Handler, T_RuleChecker, T_PermissionChecker
 from nonebot.rule import (
     Rule,
@@ -28,7 +30,7 @@ from nonebot.rule import (
     shell_command,
 )
 
-from .plugin import Plugin
+from .model import Plugin
 from . import get_plugin_by_module_name
 from .manager import _current_plugin_chain
 
@@ -44,24 +46,38 @@ def store_matcher(matcher: Type[Matcher]) -> None:
         plugin_chain[-1].matcher.add(matcher)
 
 
-def get_matcher_plugin(depth: int = 1) -> Optional[Plugin]:
+def get_matcher_plugin(depth: int = 1) -> Optional[Plugin]:  # pragma: no cover
     """获取事件响应器定义所在插件。
+
+    **Deprecated**, 请使用 {ref}`nonebot.plugin.on.get_matcher_source` 获取信息。
 
     参数:
         depth: 调用栈深度
     """
-    # matcher defined when plugin loading
-    if plugin_chain := _current_plugin_chain.get():
-        return plugin_chain[-1]
-
-    # matcher defined when plugin running
-    if module := get_matcher_module(depth + 1):
-        if plugin := get_plugin_by_module_name(module.__name__):
-            return plugin
+    warnings.warn(
+        "`get_matcher_plugin` is deprecated, please use `get_matcher_source` instead",
+        DeprecationWarning,
+    )
+    return (source := get_matcher_source(depth + 1)) and source.plugin
 
 
-def get_matcher_module(depth: int = 1) -> Optional[ModuleType]:
+def get_matcher_module(depth: int = 1) -> Optional[ModuleType]:  # pragma: no cover
     """获取事件响应器定义所在模块。
+
+    **Deprecated**, 请使用 {ref}`nonebot.plugin.on.get_matcher_source` 获取信息。
+
+    参数:
+        depth: 调用栈深度
+    """
+    warnings.warn(
+        "`get_matcher_module` is deprecated, please use `get_matcher_source` instead",
+        DeprecationWarning,
+    )
+    return (source := get_matcher_source(depth + 1)) and source.module
+
+
+def get_matcher_source(depth: int = 1) -> Optional[MatcherSource]:
+    """获取事件响应器定义所在源码信息。
 
     参数:
         depth: 调用栈深度
@@ -70,7 +86,22 @@ def get_matcher_module(depth: int = 1) -> Optional[ModuleType]:
     if current_frame is None:
         return None
     frame = inspect.getouterframes(current_frame)[depth + 1].frame
-    return inspect.getmodule(frame)
+
+    module_name = (module := inspect.getmodule(frame)) and module.__name__
+
+    plugin: Optional["Plugin"] = None
+    # matcher defined when plugin loading
+    if plugin_chain := _current_plugin_chain.get():
+        plugin = plugin_chain[-1]
+    # matcher defined when plugin running
+    elif module_name:
+        plugin = get_plugin_by_module_name(module_name)
+
+    return MatcherSource(
+        plugin_name=plugin and plugin.name,
+        module_name=module_name,
+        lineno=frame.f_lineno,
+    )
 
 
 def on(
@@ -108,8 +139,7 @@ def on(
         priority=priority,
         block=block,
         handlers=handlers,
-        plugin=get_matcher_plugin(_depth + 1),
-        module=get_matcher_module(_depth + 1),
+        source=get_matcher_source(_depth + 1),
         default_state=state,
     )
     store_matcher(matcher)
@@ -322,7 +352,8 @@ def on_shell_command(
 
     与普通的 `on_command` 不同的是，在添加 `parser` 参数时, 响应器会自动处理消息。
 
-    并将用户输入的原始参数列表保存在 `state["argv"]`, `parser` 处理的参数保存在 `state["args"]` 中
+    可以通过 {ref}`nonebot.params.ShellCommandArgv` 获取原始参数列表，
+    通过 {ref}`nonebot.params.ShellCommandArgs` 获取解析后的参数字典。
 
     参数:
         cmd: 指定命令内容
@@ -427,6 +458,7 @@ class CommandGroup(_Group):
 
     参数:
         cmd: 指定命令内容
+        prefix_aliases: 是否影响命令别名，给命令别名加前缀
         rule: 事件响应规则
         permission: 事件响应权限
         handlers: 事件处理函数列表
@@ -437,11 +469,14 @@ class CommandGroup(_Group):
         state: 默认 state
     """
 
-    def __init__(self, cmd: Union[str, Tuple[str, ...]], **kwargs):
+    def __init__(
+        self, cmd: Union[str, Tuple[str, ...]], prefix_aliases: bool = False, **kwargs
+    ):
         """命令前缀"""
         super().__init__(**kwargs)
         self.basecmd: Tuple[str, ...] = (cmd,) if isinstance(cmd, str) else cmd
         self.base_kwargs.pop("aliases", None)
+        self.prefix_aliases = prefix_aliases
 
     def __repr__(self) -> str:
         return f"CommandGroup(cmd={self.basecmd}, matchers={len(self.matchers)})"
@@ -464,6 +499,11 @@ class CommandGroup(_Group):
         """
         sub_cmd = (cmd,) if isinstance(cmd, str) else cmd
         cmd = self.basecmd + sub_cmd
+        if self.prefix_aliases and (aliases := kwargs.get("aliases")):
+            kwargs["aliases"] = {
+                self.basecmd + ((alias,) if isinstance(alias, str) else alias)
+                for alias in aliases
+            }
         matcher = on_command(cmd, **self._get_final_kwargs(kwargs))
         self.matchers.append(matcher)
         return matcher
@@ -488,6 +528,11 @@ class CommandGroup(_Group):
         """
         sub_cmd = (cmd,) if isinstance(cmd, str) else cmd
         cmd = self.basecmd + sub_cmd
+        if self.prefix_aliases and (aliases := kwargs.get("aliases")):
+            kwargs["aliases"] = {
+                self.basecmd + ((alias,) if isinstance(alias, str) else alias)
+                for alias in aliases
+            }
         matcher = on_shell_command(cmd, **self._get_final_kwargs(kwargs))
         self.matchers.append(matcher)
         return matcher
@@ -712,7 +757,8 @@ class MatcherGroup(_Group):
 
         与普通的 `on_command` 不同的是，在添加 `parser` 参数时, 响应器会自动处理消息。
 
-        并将用户输入的原始参数列表保存在 `state["argv"]`, `parser` 处理的参数保存在 `state["args"]` 中
+        可以通过 {ref}`nonebot.params.ShellCommandArgv` 获取原始参数列表，
+        通过 {ref}`nonebot.params.ShellCommandArgs` 获取解析后的参数字典。
 
         参数:
             cmd: 指定命令内容

@@ -9,14 +9,13 @@ FrontMatter:
     description: nonebot.drivers.none 模块
 """
 
-
 import signal
 import asyncio
 import threading
+from typing_extensions import override
 
 from nonebot.log import logger
 from nonebot.consts import WINDOWS
-from nonebot.typing import overrides
 from nonebot.config import Env, Config
 from nonebot.drivers import Driver as BaseDriver
 
@@ -42,32 +41,28 @@ class Driver(BaseDriver):
         self.force_exit: bool = False
 
     @property
-    @overrides(BaseDriver)
+    @override
     def type(self) -> str:
         """驱动名称: `none`"""
         return "none"
 
     @property
-    @overrides(BaseDriver)
+    @override
     def logger(self):
         """none driver 使用的 logger"""
         return logger
 
-    @overrides(BaseDriver)
+    @override
     def on_startup(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
-        """
-        注册一个启动时执行的函数
-        """
+        """注册一个启动时执行的函数"""
         return self._lifespan.on_startup(func)
 
-    @overrides(BaseDriver)
+    @override
     def on_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
-        """
-        注册一个停止时执行的函数
-        """
+        """注册一个停止时执行的函数"""
         return self._lifespan.on_shutdown(func)
 
-    @overrides(BaseDriver)
+    @override
     def run(self, *args, **kwargs):
         """启动 none driver"""
         super().run(*args, **kwargs)
@@ -146,7 +141,15 @@ class Driver(BaseDriver):
                 signal.signal(sig, self._handle_exit)
 
     def _handle_exit(self, sig, frame):
-        if self.should_exit.is_set():
-            self.force_exit = True
-        else:
+        self.exit(force=self.should_exit.is_set())
+
+    def exit(self, force: bool = False):
+        """退出 none driver
+
+        参数:
+            force: 强制退出
+        """
+        if not self.should_exit.is_set():
             self.should_exit.set()
+        if force:
+            self.force_exit = True

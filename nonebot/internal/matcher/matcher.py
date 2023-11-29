@@ -1,4 +1,9 @@
+import sys
+import inspect
+import warnings
+from pathlib import Path
 from types import ModuleType
+from dataclasses import dataclass
 from contextvars import ContextVar
 from typing_extensions import Self
 from datetime import datetime, timedelta
@@ -8,6 +13,7 @@ from typing import (
     Any,
     List,
     Type,
+    Tuple,
     Union,
     TypeVar,
     Callable,
@@ -20,7 +26,8 @@ from typing import (
 
 from nonebot.log import logger
 from nonebot.internal.rule import Rule
-from nonebot.dependencies import Dependent
+from nonebot.utils import classproperty
+from nonebot.dependencies import Param, Dependent
 from nonebot.internal.permission import User, Permission
 from nonebot.internal.adapter import (
     Bot,
@@ -29,20 +36,19 @@ from nonebot.internal.adapter import (
     MessageSegment,
     MessageTemplate,
 )
+from nonebot.typing import (
+    T_State,
+    T_Handler,
+    T_TypeUpdater,
+    T_DependencyCache,
+    T_PermissionUpdater,
+)
 from nonebot.consts import (
     ARG_KEY,
     RECEIVE_KEY,
     REJECT_TARGET,
     LAST_RECEIVE_KEY,
     REJECT_CACHE_TARGET,
-)
-from nonebot.typing import (
-    Any,
-    T_State,
-    T_Handler,
-    T_TypeUpdater,
-    T_DependencyCache,
-    T_PermissionUpdater,
 )
 from nonebot.exception import (
     PausedException,
@@ -75,15 +81,51 @@ current_matcher: ContextVar["Matcher"] = ContextVar("current_matcher")
 current_handler: ContextVar[Dependent] = ContextVar("current_handler")
 
 
+@dataclass
+class MatcherSource:
+    """Matcher 源代码上下文信息"""
+
+    plugin_name: Optional[str] = None
+    """事件响应器所在插件名称"""
+    module_name: Optional[str] = None
+    """事件响应器所在插件模块的路径名"""
+    lineno: Optional[int] = None
+    """事件响应器所在行号"""
+
+    @property
+    def plugin(self) -> Optional["Plugin"]:
+        """事件响应器所在插件"""
+        from nonebot.plugin import get_plugin
+
+        if self.plugin_name is not None:
+            return get_plugin(self.plugin_name)
+
+    @property
+    def module(self) -> Optional[ModuleType]:
+        if self.module_name is not None:
+            return sys.modules.get(self.module_name)
+
+    @property
+    def file(self) -> Optional[Path]:
+        if self.module is not None and (file := inspect.getsourcefile(self.module)):
+            return Path(file).absolute()
+
+
 class MatcherMeta(type):
     if TYPE_CHECKING:
-        module_name: Optional[str]
         type: str
+        _source: Optional[MatcherSource]
+        module_name: Optional[str]
 
     def __repr__(self) -> str:
         return (
             f"{self.__name__}(type={self.type!r}"
             + (f", module={self.module_name}" if self.module_name else "")
+            + (
+                f", lineno={self._source.lineno}"
+                if self._source and self._source.lineno is not None
+                else ""
+            )
             + ")"
         )
 
@@ -91,14 +133,7 @@ class MatcherMeta(type):
 class Matcher(metaclass=MatcherMeta):
     """事件响应器类"""
 
-    plugin: ClassVar[Optional["Plugin"]] = None
-    """事件响应器所在插件"""
-    module: ClassVar[Optional[ModuleType]] = None
-    """事件响应器所在插件模块"""
-    plugin_name: ClassVar[Optional[str]] = None
-    """事件响应器所在插件名"""
-    module_name: ClassVar[Optional[str]] = None
-    """事件响应器所在点分割插件模块路径"""
+    _source: ClassVar[Optional[MatcherSource]] = None
 
     type: ClassVar[str] = ""
     """事件响应器类型"""
@@ -125,7 +160,7 @@ class Matcher(metaclass=MatcherMeta):
     _default_permission_updater: ClassVar[Optional[Dependent[Permission]]] = None
     """事件响应器权限更新函数"""
 
-    HANDLER_PARAM_TYPES = (
+    HANDLER_PARAM_TYPES: ClassVar[Tuple[Type[Param], ...]] = (
         DependParam,
         BotParam,
         EventParam,
@@ -143,6 +178,11 @@ class Matcher(metaclass=MatcherMeta):
         return (
             f"{self.__class__.__name__}(type={self.type!r}"
             + (f", module={self.module_name}" if self.module_name else "")
+            + (
+                f", lineno={self._source.lineno}"
+                if self._source and self._source.lineno is not None
+                else ""
+            )
             + ")"
         )
 
@@ -159,6 +199,7 @@ class Matcher(metaclass=MatcherMeta):
         *,
         plugin: Optional["Plugin"] = None,
         module: Optional[ModuleType] = None,
+        source: Optional[MatcherSource] = None,
         expire_time: Optional[Union[datetime, timedelta]] = None,
         default_state: Optional[T_State] = None,
         default_type_updater: Optional[Union[T_TypeUpdater, Dependent[str]]] = None,
@@ -177,22 +218,47 @@ class Matcher(metaclass=MatcherMeta):
             temp: 是否为临时事件响应器，即触发一次后删除
             priority: 响应优先级
             block: 是否阻止事件向更低优先级的响应器传播
-            plugin: 事件响应器所在插件
-            module: 事件响应器所在模块
-            default_state: 默认状态 `state`
+            plugin: **Deprecated.** 事件响应器所在插件
+            module: **Deprecated.** 事件响应器所在模块
+            source: 事件响应器源代码上下文信息
             expire_time: 事件响应器最终有效时间点，过时即被删除
+            default_state: 默认状态 `state`
+            default_type_updater: 默认事件类型更新函数
+            default_permission_updater: 默认会话权限更新函数
 
         返回:
             Type[Matcher]: 新的事件响应器类
         """
+        if plugin is not None:
+            warnings.warn(
+                (
+                    "Pass `plugin` context info to create Matcher is deprecated. "
+                    "Use `source` instead."
+                ),
+                DeprecationWarning,
+            )
+        if module is not None:
+            warnings.warn(
+                (
+                    "Pass `module` context info to create Matcher is deprecated. "
+                    "Use `source` instead."
+                ),
+                DeprecationWarning,
+            )
+        source = source or (
+            MatcherSource(
+                plugin_name=plugin and plugin.name,
+                module_name=module and module.__name__,
+            )
+            if plugin is not None or module is not None
+            else None
+        )
+
         NewMatcher = type(
             cls.__name__,
             (cls,),
             {
-                "plugin": plugin,
-                "module": module,
-                "plugin_name": plugin and plugin.name,
-                "module_name": module and module.__name__,
+                "_source": source,
                 "type": type_,
                 "rule": rule or Rule(),
                 "permission": permission or Permission(),
@@ -253,6 +319,26 @@ class Matcher(metaclass=MatcherMeta):
     def destroy(cls) -> None:
         """销毁当前的事件响应器"""
         matchers[cls.priority].remove(cls)
+
+    @classproperty
+    def plugin(cls) -> Optional["Plugin"]:
+        """事件响应器所在插件"""
+        return cls._source and cls._source.plugin
+
+    @classproperty
+    def module(cls) -> Optional[ModuleType]:
+        """事件响应器所在插件模块"""
+        return cls._source and cls._source.module
+
+    @classproperty
+    def plugin_name(cls) -> Optional[str]:
+        """事件响应器所在插件名"""
+        return cls._source and cls._source.plugin_name
+
+    @classproperty
+    def module_name(cls) -> Optional[str]:
+        """事件响应器所在插件模块路径"""
+        return cls._source and cls._source.module_name
 
     @classmethod
     async def check_perm(
@@ -376,7 +462,7 @@ class Matcher(metaclass=MatcherMeta):
                 return
             await matcher.reject()
 
-        _parameterless = (Depends(_receive), *(parameterless or tuple()))
+        _parameterless = (Depends(_receive), *(parameterless or ()))
 
         def _decorator(func: T_Handler) -> T_Handler:
             if cls.handlers and cls.handlers[-1].call is func:
@@ -406,7 +492,8 @@ class Matcher(metaclass=MatcherMeta):
     ) -> Callable[[T_Handler], T_Handler]:
         """装饰一个函数来指示 NoneBot 获取一个参数 `key`
 
-        当要获取的 `key` 不存在时接收用户新的一条消息再运行该函数，如果 `key` 已存在则直接继续运行
+        当要获取的 `key` 不存在时接收用户新的一条消息再运行该函数，
+        如果 `key` 已存在则直接继续运行
 
         参数:
             key: 参数名
@@ -423,7 +510,7 @@ class Matcher(metaclass=MatcherMeta):
                 return
             await matcher.reject(prompt)
 
-        _parameterless = (Depends(_key_getter), *(parameterless or tuple()))
+        _parameterless = (Depends(_key_getter), *(parameterless or ()))
 
         def _decorator(func: T_Handler) -> T_Handler:
             if cls.handlers and cls.handlers[-1].call is func:
@@ -454,7 +541,8 @@ class Matcher(metaclass=MatcherMeta):
 
         参数:
             message: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         bot = current_bot.get()
         event = current_event.get()
@@ -475,7 +563,8 @@ class Matcher(metaclass=MatcherMeta):
 
         参数:
             message: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         if message is not None:
             await cls.send(message, **kwargs)
@@ -491,7 +580,8 @@ class Matcher(metaclass=MatcherMeta):
 
         参数:
             prompt: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         if prompt is not None:
             await cls.send(prompt, **kwargs)
@@ -508,7 +598,8 @@ class Matcher(metaclass=MatcherMeta):
 
         参数:
             prompt: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         if prompt is not None:
             await cls.send(prompt, **kwargs)
@@ -527,7 +618,8 @@ class Matcher(metaclass=MatcherMeta):
         参数:
             key: 参数名
             prompt: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         matcher = current_matcher.get()
         matcher.set_target(ARG_KEY.format(key=key))
@@ -548,7 +640,8 @@ class Matcher(metaclass=MatcherMeta):
         参数:
             id: 消息 id
             prompt: 消息内容
-            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，请参考对应 adapter 的 bot 对象 api
+            kwargs: {ref}`nonebot.adapters.Bot.send` 的参数，
+                请参考对应 adapter 的 bot 对象 api
         """
         matcher = current_matcher.get()
         matcher.set_target(RECEIVE_KEY.format(id=id))
@@ -767,8 +860,7 @@ class Matcher(metaclass=MatcherMeta):
                 temp=True,
                 priority=0,
                 block=True,
-                plugin=self.plugin,
-                module=self.module,
+                source=self.__class__._source,
                 expire_time=bot.config.session_expire_timeout,
                 default_state=self.state,
                 default_type_updater=self.__class__._default_type_updater,
@@ -788,8 +880,7 @@ class Matcher(metaclass=MatcherMeta):
                 temp=True,
                 priority=0,
                 block=True,
-                plugin=self.plugin,
-                module=self.module,
+                source=self.__class__._source,
                 expire_time=bot.config.session_expire_timeout,
                 default_state=self.state,
                 default_type_updater=self.__class__._default_type_updater,

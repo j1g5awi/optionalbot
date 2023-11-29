@@ -45,6 +45,10 @@ class Param(abc.ABC, FieldInfo):
     继承自 `pydantic.fields.FieldInfo`，用于描述参数信息（不包括参数名）。
     """
 
+    def __init__(self, *args, validate: bool = False, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.validate = validate
+
     @classmethod
     def _check_param(
         cls, param: inspect.Parameter, allow_types: Tuple[Type["Param"], ...]
@@ -82,8 +86,8 @@ class Dependent(Generic[R]):
     """
 
     call: _DependentCallable[R]
-    params: Tuple[ModelField] = field(default_factory=tuple)
-    parameterless: Tuple[Param] = field(default_factory=tuple)
+    params: Tuple[ModelField, ...] = field(default_factory=tuple)
+    parameterless: Tuple[Param, ...] = field(default_factory=tuple)
 
     def __repr__(self) -> str:
         if inspect.isfunction(self.call) or inspect.isclass(self.call):
@@ -97,22 +101,26 @@ class Dependent(Generic[R]):
         )
 
     async def __call__(self, **kwargs: Any) -> R:
-        # do pre-check
-        await self.check(**kwargs)
+        try:
+            # do pre-check
+            await self.check(**kwargs)
 
-        # solve param values
-        values = await self.solve(**kwargs)
+            # solve param values
+            values = await self.solve(**kwargs)
 
-        # call function
-        if is_coroutine_callable(self.call):
-            return await cast(Callable[..., Awaitable[R]], self.call)(**values)
-        else:
-            return await run_sync(cast(Callable[..., R], self.call))(**values)
+            # call function
+            if is_coroutine_callable(self.call):
+                return await cast(Callable[..., Awaitable[R]], self.call)(**values)
+            else:
+                return await run_sync(cast(Callable[..., R], self.call))(**values)
+        except SkippedException as e:
+            logger.trace(f"{self} skipped due to {e}")
+            raise
 
     @staticmethod
     def parse_params(
         call: _DependentCallable[R], allow_types: Tuple[Type[Param], ...]
-    ) -> Tuple[ModelField]:
+    ) -> Tuple[ModelField, ...]:
         fields: List[ModelField] = []
         params = get_typed_signature(call).parameters.values()
 
@@ -129,7 +137,8 @@ class Dependent(Generic[R]):
                         break
                 else:
                     raise ValueError(
-                        f"Unknown parameter {param.name} for function {call} with type {param.annotation}"
+                        f"Unknown parameter {param.name} "
+                        f"for function {call} with type {param.annotation}"
                     )
 
             default_value = field_info.default
@@ -182,7 +191,7 @@ class Dependent(Generic[R]):
 
         params = cls.parse_params(call, allow_types)
         parameterless_params = (
-            tuple()
+            ()
             if parameterless is None
             else cls.parse_parameterless(tuple(parameterless), allow_types)
         )
@@ -190,25 +199,18 @@ class Dependent(Generic[R]):
         return cls(call, params, parameterless_params)
 
     async def check(self, **params: Any) -> None:
-        try:
-            await asyncio.gather(
-                *(param._check(**params) for param in self.parameterless)
-            )
-            await asyncio.gather(
-                *(
-                    cast(Param, param.field_info)._check(**params)
-                    for param in self.params
-                )
-            )
-        except SkippedException as e:
-            logger.trace(f"{self} skipped due to {e}")
-            raise
+        await asyncio.gather(*(param._check(**params) for param in self.parameterless))
+        await asyncio.gather(
+            *(cast(Param, param.field_info)._check(**params) for param in self.params)
+        )
 
     async def _solve_field(self, field: ModelField, params: Dict[str, Any]) -> Any:
-        value = await cast(Param, field.field_info)._solve(**params)
+        param = cast(Param, field.field_info)
+        value = await param._solve(**params)
         if value is Undefined:
             value = field.get_default()
-        return check_field_type(field, value)
+        v = check_field_type(field, value)
+        return v if param.validate else value
 
     async def solve(self, **params: Any) -> Dict[str, Any]:
         # solve parameterless

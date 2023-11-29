@@ -1,9 +1,12 @@
+import re
+
 import pytest
 from nonebug import App
 
 from nonebot.matcher import Matcher
+from nonebot.dependencies import Dependent
 from nonebot.exception import TypeMisMatch
-from utils import make_fake_event, make_fake_message
+from utils import FakeMessage, make_fake_event
 from nonebot.params import (
     ArgParam,
     BotParam,
@@ -16,15 +19,12 @@ from nonebot.params import (
 )
 from nonebot.consts import (
     CMD_KEY,
-    REGEX_STR,
     PREFIX_KEY,
-    REGEX_DICT,
     SHELL_ARGS,
     SHELL_ARGV,
     CMD_ARG_KEY,
     KEYWORD_KEY,
     RAW_CMD_KEY,
-    REGEX_GROUP,
     ENDSWITH_KEY,
     CMD_START_KEY,
     FULLMATCH_KEY,
@@ -33,6 +33,8 @@ from nonebot.consts import (
     CMD_WHITESPACE_KEY,
 )
 
+UNKNOWN_PARAM = "Unknown parameter"
+
 
 @pytest.mark.asyncio
 async def test_depend(app: App):
@@ -40,17 +42,24 @@ async def test_depend(app: App):
         ClassDependency,
         runned,
         depends,
+        validate,
         class_depend,
         test_depends,
+        validate_fail,
+        validate_field,
         annotated_depend,
+        sub_type_mismatch,
+        validate_field_fail,
         annotated_class_depend,
+        annotated_multi_depend,
         annotated_prior_depend,
     )
 
     async with app.test_dependent(depends, allow_types=[DependParam]) as ctx:
         ctx.should_return(1)
 
-    assert len(runned) == 1 and runned[0] == 1
+    assert len(runned) == 1
+    assert runned[0] == 1
 
     runned.clear()
 
@@ -59,7 +68,7 @@ async def test_depend(app: App):
         event_next = make_fake_event()()
         ctx.receive_event(bot, event_next)
 
-    assert len(runned) == 2 and runned[0] == runned[1] == 1
+    assert runned == [1, 1]
 
     runned.clear()
 
@@ -73,12 +82,41 @@ async def test_depend(app: App):
         annotated_prior_depend, allow_types=[DependParam]
     ) as ctx:
         ctx.should_return(1)
-    assert runned == [1, 1]
+
+    async with app.test_dependent(
+        annotated_multi_depend, allow_types=[DependParam]
+    ) as ctx:
+        ctx.should_return(1)
+
+    assert runned == [1, 1, 1]
 
     async with app.test_dependent(
         annotated_class_depend, allow_types=[DependParam]
     ) as ctx:
         ctx.should_return(ClassDependency(x=1, y=2))
+
+    with pytest.raises(TypeMisMatch):  # noqa: PT012
+        async with app.test_dependent(
+            sub_type_mismatch, allow_types=[DependParam, BotParam]
+        ) as ctx:
+            bot = ctx.create_bot()
+            ctx.pass_params(bot=bot)
+
+    async with app.test_dependent(validate, allow_types=[DependParam]) as ctx:
+        ctx.should_return(1)
+
+    with pytest.raises(TypeMisMatch):
+        async with app.test_dependent(validate_fail, allow_types=[DependParam]) as ctx:
+            ...
+
+    async with app.test_dependent(validate_field, allow_types=[DependParam]) as ctx:
+        ctx.should_return(1)
+
+    with pytest.raises(TypeMisMatch):
+        async with app.test_dependent(
+            validate_field_fail, allow_types=[DependParam]
+        ) as ctx:
+            ...
 
 
 @pytest.mark.asyncio
@@ -90,7 +128,9 @@ async def test_bot(app: App):
         sub_bot,
         union_bot,
         legacy_bot,
+        generic_bot,
         not_legacy_bot,
+        generic_bot_none,
     )
 
     async with app.test_dependent(get_bot, allow_types=[BotParam]) as ctx:
@@ -103,16 +143,15 @@ async def test_bot(app: App):
         ctx.pass_params(bot=bot)
         ctx.should_return(bot)
 
-    with pytest.raises(ValueError):
-        async with app.test_dependent(not_legacy_bot, allow_types=[BotParam]) as ctx:
-            ...
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_legacy_bot, allow_types=[BotParam])
 
     async with app.test_dependent(sub_bot, allow_types=[BotParam]) as ctx:
         bot = ctx.create_bot(base=FooBot)
         ctx.pass_params(bot=bot)
         ctx.should_return(bot)
 
-    with pytest.raises(TypeMisMatch):
+    with pytest.raises(TypeMisMatch):  # noqa: PT012
         async with app.test_dependent(sub_bot, allow_types=[BotParam]) as ctx:
             bot = ctx.create_bot()
             ctx.pass_params(bot=bot)
@@ -122,9 +161,18 @@ async def test_bot(app: App):
         ctx.pass_params(bot=bot)
         ctx.should_return(bot)
 
-    with pytest.raises(ValueError):
-        async with app.test_dependent(not_bot, allow_types=[BotParam]) as ctx:
-            ...
+    async with app.test_dependent(generic_bot, allow_types=[BotParam]) as ctx:
+        bot = ctx.create_bot()
+        ctx.pass_params(bot=bot)
+        ctx.should_return(bot)
+
+    async with app.test_dependent(generic_bot_none, allow_types=[BotParam]) as ctx:
+        bot = ctx.create_bot()
+        ctx.pass_params(bot=bot)
+        ctx.should_return(bot)
+
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_bot, allow_types=[BotParam])
 
 
 @pytest.mark.asyncio
@@ -139,11 +187,13 @@ async def test_event(app: App):
         union_event,
         legacy_event,
         event_message,
+        generic_event,
         event_plain_text,
         not_legacy_event,
+        generic_event_none,
     )
 
-    fake_message = make_fake_message()("text")
+    fake_message = FakeMessage("text")
     fake_event = make_fake_event(_message=fake_message)()
     fake_fooevent = make_fake_event(_base=FooEvent)()
 
@@ -155,17 +205,14 @@ async def test_event(app: App):
         ctx.pass_params(event=fake_event)
         ctx.should_return(fake_event)
 
-    with pytest.raises(ValueError):
-        async with app.test_dependent(
-            not_legacy_event, allow_types=[EventParam]
-        ) as ctx:
-            ...
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_legacy_event, allow_types=[EventParam])
 
     async with app.test_dependent(sub_event, allow_types=[EventParam]) as ctx:
         ctx.pass_params(event=fake_fooevent)
         ctx.should_return(fake_fooevent)
 
-    with pytest.raises(TypeMisMatch):
+    with pytest.raises(TypeMisMatch):  # noqa: PT012
         async with app.test_dependent(sub_event, allow_types=[EventParam]) as ctx:
             ctx.pass_params(event=fake_event)
 
@@ -173,9 +220,16 @@ async def test_event(app: App):
         ctx.pass_params(event=fake_fooevent)
         ctx.should_return(fake_event)
 
-    with pytest.raises(ValueError):
-        async with app.test_dependent(not_event, allow_types=[EventParam]) as ctx:
-            ...
+    async with app.test_dependent(generic_event, allow_types=[EventParam]) as ctx:
+        ctx.pass_params(event=fake_event)
+        ctx.should_return(fake_event)
+
+    async with app.test_dependent(generic_event_none, allow_types=[EventParam]) as ctx:
+        ctx.pass_params(event=fake_event)
+        ctx.should_return(fake_event)
+
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_event, allow_types=[EventParam])
 
     async with app.test_dependent(
         event_type, allow_types=[EventParam, DependParam]
@@ -225,7 +279,8 @@ async def test_state(app: App):
         shell_command_argv,
     )
 
-    fake_message = make_fake_message()("text")
+    fake_message = FakeMessage("text")
+    fake_matched = re.match(r"\[cq:(?P<type>.*?),(?P<arg>.*?)\]", "[cq:test,arg=value]")
     fake_state = {
         PREFIX_KEY: {
             CMD_KEY: ("cmd",),
@@ -236,10 +291,7 @@ async def test_state(app: App):
         },
         SHELL_ARGV: ["-h"],
         SHELL_ARGS: {"help": True},
-        REGEX_MATCHED: "[cq:test,arg=value]",
-        REGEX_STR: "[cq:test,arg=value]",
-        REGEX_GROUP: ("test", "arg=value"),
-        REGEX_DICT: {"type": "test", "arg": "value"},
+        REGEX_MATCHED: fake_matched,
         STARTSWITH_KEY: "startswith",
         ENDSWITH_KEY: "endswith",
         FULLMATCH_KEY: "fullmatch",
@@ -254,11 +306,8 @@ async def test_state(app: App):
         ctx.pass_params(state=fake_state)
         ctx.should_return(fake_state)
 
-    with pytest.raises(ValueError):
-        async with app.test_dependent(
-            not_legacy_state, allow_types=[StateParam]
-        ) as ctx:
-            ...
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_legacy_state, allow_types=[StateParam])
 
     async with app.test_dependent(
         command, allow_types=[StateParam, DependParam]
@@ -312,19 +361,19 @@ async def test_state(app: App):
         regex_str, allow_types=[StateParam, DependParam]
     ) as ctx:
         ctx.pass_params(state=fake_state)
-        ctx.should_return(fake_state[REGEX_STR])
+        ctx.should_return("[cq:test,arg=value]")
 
     async with app.test_dependent(
         regex_group, allow_types=[StateParam, DependParam]
     ) as ctx:
         ctx.pass_params(state=fake_state)
-        ctx.should_return(fake_state[REGEX_GROUP])
+        ctx.should_return(("test", "arg=value"))
 
     async with app.test_dependent(
         regex_dict, allow_types=[StateParam, DependParam]
     ) as ctx:
         ctx.pass_params(state=fake_state)
-        ctx.should_return(fake_state[REGEX_DICT])
+        ctx.should_return({"type": "test", "arg": "arg=value"})
 
     async with app.test_dependent(
         startswith, allow_types=[StateParam, DependParam]
@@ -353,13 +402,58 @@ async def test_state(app: App):
 
 @pytest.mark.asyncio
 async def test_matcher(app: App):
-    from plugins.param.param_matcher import matcher, receive, last_receive
+    from plugins.param.param_matcher import (
+        FooMatcher,
+        matcher,
+        receive,
+        not_matcher,
+        sub_matcher,
+        last_receive,
+        union_matcher,
+        legacy_matcher,
+        generic_matcher,
+        not_legacy_matcher,
+        generic_matcher_none,
+    )
 
     fake_matcher = Matcher()
+    foo_matcher = FooMatcher()
 
     async with app.test_dependent(matcher, allow_types=[MatcherParam]) as ctx:
         ctx.pass_params(matcher=fake_matcher)
         ctx.should_return(fake_matcher)
+
+    async with app.test_dependent(legacy_matcher, allow_types=[MatcherParam]) as ctx:
+        ctx.pass_params(matcher=fake_matcher)
+        ctx.should_return(fake_matcher)
+
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_legacy_matcher, allow_types=[MatcherParam])
+
+    async with app.test_dependent(sub_matcher, allow_types=[MatcherParam]) as ctx:
+        ctx.pass_params(matcher=foo_matcher)
+        ctx.should_return(foo_matcher)
+
+    with pytest.raises(TypeMisMatch):  # noqa: PT012
+        async with app.test_dependent(sub_matcher, allow_types=[MatcherParam]) as ctx:
+            ctx.pass_params(matcher=fake_matcher)
+
+    async with app.test_dependent(union_matcher, allow_types=[MatcherParam]) as ctx:
+        ctx.pass_params(matcher=foo_matcher)
+        ctx.should_return(foo_matcher)
+
+    async with app.test_dependent(generic_matcher, allow_types=[MatcherParam]) as ctx:
+        ctx.pass_params(matcher=fake_matcher)
+        ctx.should_return(fake_matcher)
+
+    async with app.test_dependent(
+        generic_matcher_none, allow_types=[MatcherParam]
+    ) as ctx:
+        ctx.pass_params(matcher=fake_matcher)
+        ctx.should_return(fake_matcher)
+
+    with pytest.raises(ValueError, match=UNKNOWN_PARAM):
+        app.test_dependent(not_matcher, allow_types=[MatcherParam])
 
     event = make_fake_event()()
     fake_matcher.set_receive("test", event)
@@ -381,10 +475,19 @@ async def test_matcher(app: App):
 
 @pytest.mark.asyncio
 async def test_arg(app: App):
-    from plugins.param.param_arg import arg, arg_str, arg_plain_text
+    from plugins.param.param_arg import (
+        arg,
+        arg_str,
+        annotated_arg,
+        arg_plain_text,
+        annotated_arg_str,
+        annotated_multi_arg,
+        annotated_prior_arg,
+        annotated_arg_plain_text,
+    )
 
     matcher = Matcher()
-    message = make_fake_message()("text")
+    message = FakeMessage("text")
     matcher.set_arg("key", message)
 
     async with app.test_dependent(arg, allow_types=[ArgParam]) as ctx:
@@ -396,6 +499,28 @@ async def test_arg(app: App):
         ctx.should_return(str(message))
 
     async with app.test_dependent(arg_plain_text, allow_types=[ArgParam]) as ctx:
+        ctx.pass_params(matcher=matcher)
+        ctx.should_return(message.extract_plain_text())
+
+    async with app.test_dependent(annotated_arg, allow_types=[ArgParam]) as ctx:
+        ctx.pass_params(matcher=matcher)
+        ctx.should_return(message)
+
+    async with app.test_dependent(annotated_arg_str, allow_types=[ArgParam]) as ctx:
+        ctx.pass_params(matcher=matcher)
+        ctx.should_return(str(message))
+
+    async with app.test_dependent(
+        annotated_arg_plain_text, allow_types=[ArgParam]
+    ) as ctx:
+        ctx.pass_params(matcher=matcher)
+        ctx.should_return(message.extract_plain_text())
+
+    async with app.test_dependent(annotated_multi_arg, allow_types=[ArgParam]) as ctx:
+        ctx.pass_params(matcher=matcher)
+        ctx.should_return(message.extract_plain_text())
+
+    async with app.test_dependent(annotated_prior_arg, allow_types=[ArgParam]) as ctx:
         ctx.pass_params(matcher=matcher)
         ctx.should_return(message.extract_plain_text())
 
@@ -416,3 +541,41 @@ async def test_default(app: App):
 
     async with app.test_dependent(default, allow_types=[DefaultParam]) as ctx:
         ctx.should_return(1)
+
+
+@pytest.mark.asyncio
+async def test_priority():
+    from plugins.param.priority import complex_priority
+
+    dependent = Dependent.parse(
+        call=complex_priority,
+        allow_types=[
+            DependParam,
+            BotParam,
+            EventParam,
+            StateParam,
+            MatcherParam,
+            ArgParam,
+            ExceptionParam,
+            DefaultParam,
+        ],
+    )
+    for param in dependent.params:
+        if param.name == "sub":
+            assert isinstance(param.field_info, DependParam)
+        elif param.name == "bot":
+            assert isinstance(param.field_info, BotParam)
+        elif param.name == "event":
+            assert isinstance(param.field_info, EventParam)
+        elif param.name == "state":
+            assert isinstance(param.field_info, StateParam)
+        elif param.name == "matcher":
+            assert isinstance(param.field_info, MatcherParam)
+        elif param.name == "arg":
+            assert isinstance(param.field_info, ArgParam)
+        elif param.name == "exception":
+            assert isinstance(param.field_info, ExceptionParam)
+        elif param.name == "default":
+            assert isinstance(param.field_info, DefaultParam)
+        else:
+            raise ValueError(f"unknown param {param.name}")

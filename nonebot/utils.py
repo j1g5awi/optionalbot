@@ -12,14 +12,16 @@ import inspect
 import importlib
 import dataclasses
 from pathlib import Path
+from contextvars import copy_context
 from functools import wraps, partial
 from contextlib import asynccontextmanager
-from typing_extensions import ParamSpec, get_args, get_origin
+from typing_extensions import ParamSpec, get_args, override, get_origin
 from typing import (
     Any,
     Type,
     Tuple,
     Union,
+    Generic,
     TypeVar,
     Callable,
     Optional,
@@ -29,10 +31,9 @@ from typing import (
     overload,
 )
 
-from pydantic.typing import is_union, is_none_type
+from pydantic.typing import is_union, is_none_type, is_literal_type, all_literal_values
 
 from nonebot.log import logger
-from nonebot.typing import overrides
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -57,8 +58,13 @@ def generic_check_issubclass(
 ) -> bool:
     """检查 cls 是否是 class_or_tuple 中的一个类型子类。
 
-    特别的，如果 cls 是 `typing.Union` 或 `types.UnionType` 类型，
-    则会检查其中的类型是否是 class_or_tuple 中的一个类型子类。（None 会被忽略）
+    特别的：
+
+    - 如果 cls 是 `typing.Union` 或 `types.UnionType` 类型，
+      则会检查其中的所有类型是否是 class_or_tuple 中一个类型的子类或 None。
+    - 如果 cls 是 `typing.TypeVar` 类型，
+      则会检查其 `__bound__` 或 `__constraints__`
+      是否是 class_or_tuple 中一个类型的子类或 None。
     """
     try:
         return issubclass(cls, class_or_tuple)
@@ -69,8 +75,27 @@ def generic_check_issubclass(
                 is_none_type(type_) or generic_check_issubclass(type_, class_or_tuple)
                 for type_ in get_args(cls)
             )
+        elif is_literal_type(cls):
+            return all(
+                is_none_type(value) or isinstance(value, class_or_tuple)
+                for value in all_literal_values(cls)
+            )
+        # ensure generic List, Dict can be checked
         elif origin:
-            return issubclass(origin, class_or_tuple)
+            # avoid class check error (typing.Final, typing.ClassVar, etc...)
+            try:
+                return issubclass(origin, class_or_tuple)
+            except TypeError:
+                return False
+        elif isinstance(cls, TypeVar):
+            if cls.__constraints__:
+                return all(
+                    is_none_type(type_)
+                    or generic_check_issubclass(type_, class_or_tuple)
+                    for type_ in cls.__constraints__
+                )
+            elif cls.__bound__:
+                return generic_check_issubclass(cls.__bound__, class_or_tuple)
         return False
 
 
@@ -111,7 +136,8 @@ def run_sync(call: Callable[P, R]) -> Callable[P, Coroutine[None, None, R]]:
     async def _wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         loop = asyncio.get_running_loop()
         pfunc = partial(call, *args, **kwargs)
-        result = await loop.run_in_executor(None, pfunc)
+        context = copy_context()
+        result = await loop.run_in_executor(None, partial(context.run, pfunc))
         return result
 
     return _wrapper
@@ -136,6 +162,7 @@ async def run_sync_ctx_manager(
 async def run_coro_with_catch(
     coro: Coroutine[Any, Any, T],
     exc: Tuple[Type[Exception], ...],
+    return_on_err: None = None,
 ) -> Union[T, None]:
     ...
 
@@ -154,6 +181,17 @@ async def run_coro_with_catch(
     exc: Tuple[Type[Exception], ...],
     return_on_err: Optional[R] = None,
 ) -> Optional[Union[T, R]]:
+    """运行协程并当遇到指定异常时返回指定值。
+
+    参数:
+        coro: 要运行的协程
+        exc: 要捕获的异常
+        return_on_err: 当发生异常时返回的值
+
+    返回:
+        协程的返回值或发生异常时的指定值
+    """
+
     try:
         return await coro
     except exc:
@@ -192,10 +230,20 @@ def resolve_dot_notation(
     return instance
 
 
-class DataclassEncoder(json.JSONEncoder):
-    """在JSON序列化 {re}`nonebot.adapters._message.Message` (List[Dataclass]) 时使用的 `JSONEncoder`"""
+class classproperty(Generic[T]):
+    """类属性装饰器"""
 
-    @overrides(json.JSONEncoder)
+    def __init__(self, func: Callable[[Any], T]) -> None:
+        self.func = func
+
+    def __get__(self, instance: Any, owner: Optional[Type[Any]] = None) -> T:
+        return self.func(type(instance) if owner is None else owner)
+
+
+class DataclassEncoder(json.JSONEncoder):
+    """可以序列化 {ref}`nonebot.adapters.Message`(List[Dataclass]) 的 `JSONEncoder`"""
+
+    @override
     def default(self, o):
         if dataclasses.is_dataclass(o):
             return {f.name: getattr(o, f.name) for f in dataclasses.fields(o)}
@@ -211,9 +259,11 @@ def logger_wrapper(logger_name: str):
     返回:
         日志记录函数
 
-            - level: 日志等级
-            - message: 日志信息
-            - exception: 异常信息
+        日志记录函数的参数:
+
+        - level: 日志等级
+        - message: 日志信息
+        - exception: 异常信息
     """
 
     def log(level: str, message: str, exception: Optional[Exception] = None):

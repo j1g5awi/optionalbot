@@ -1,7 +1,8 @@
 """本模块是 {ref}`nonebot.matcher.Matcher.rule` 的类型定义。
 
-每个事件响应器 {ref}`nonebot.matcher.Matcher` 拥有一个匹配规则 {ref}`nonebot.rule.Rule`
-其中是 `RuleChecker` 的集合，只有当所有 `RuleChecker` 检查结果为 `True` 时继续运行。
+每个{ref}`事件响应器 <nonebot.matcher.Matcher>`拥有一个
+{ref}`nonebot.rule.Rule`，其中是 `RuleChecker` 的集合。
+只有当所有 `RuleChecker` 检查结果为 `True` 时继续运行。
 
 FrontMatter:
     sidebar_position: 5
@@ -11,6 +12,7 @@ FrontMatter:
 import re
 import shlex
 from argparse import Action
+from gettext import gettext
 from argparse import ArgumentError
 from contextvars import ContextVar
 from itertools import chain, product
@@ -43,15 +45,12 @@ from nonebot.adapters import Bot, Event, Message, MessageSegment
 from nonebot.params import Command, EventToMe, CommandArg, CommandWhitespace
 from nonebot.consts import (
     CMD_KEY,
-    REGEX_STR,
     PREFIX_KEY,
-    REGEX_DICT,
     SHELL_ARGS,
     SHELL_ARGV,
     CMD_ARG_KEY,
     KEYWORD_KEY,
     RAW_CMD_KEY,
-    REGEX_GROUP,
     ENDSWITH_KEY,
     CMD_START_KEY,
     FULLMATCH_KEY,
@@ -62,20 +61,19 @@ from nonebot.consts import (
 
 T = TypeVar("T")
 
-CMD_RESULT = TypedDict(
-    "CMD_RESULT",
-    {
-        "command": Optional[Tuple[str, ...]],
-        "raw_command": Optional[str],
-        "command_arg": Optional[Message],
-        "command_start": Optional[str],
-        "command_whitespace": Optional[str],
-    },
-)
 
-TRIE_VALUE = NamedTuple(
-    "TRIE_VALUE", [("command_start", str), ("command", Tuple[str, ...])]
-)
+class CMD_RESULT(TypedDict):
+    command: Optional[Tuple[str, ...]]
+    raw_command: Optional[str]
+    command_arg: Optional[Message]
+    command_start: Optional[str]
+    command_whitespace: Optional[str]
+
+
+class TRIE_VALUE(NamedTuple):
+    command_start: str
+    command: Tuple[str, ...]
+
 
 parser_message: ContextVar[str] = ContextVar("parser_message")
 
@@ -124,6 +122,11 @@ class TrieRule:
                 # check whitespace
                 arg_str = segment_text[len(pf.key) :]
                 arg_str_stripped = arg_str.lstrip()
+                # check next segment until arg detected or no text remain
+                while not arg_str_stripped and msg and msg[0].is_text():
+                    arg_str += str(msg.pop(0))
+                    arg_str_stripped = arg_str.lstrip()
+
                 has_arg = arg_str_stripped or msg
                 if (
                     has_arg
@@ -383,11 +386,12 @@ class CommandRule:
     async def __call__(
         self,
         cmd: Optional[Tuple[str, ...]] = Command(),
+        cmd_arg: Optional[Message] = CommandArg(),
         cmd_whitespace: Optional[str] = CommandWhitespace(),
     ) -> bool:
         if cmd not in self.cmds:
             return False
-        if self.force_whitespace is None:
+        if self.force_whitespace is None or not cmd_arg:
             return True
         if isinstance(self.force_whitespace, str):
             return self.force_whitespace == cmd_whitespace
@@ -412,7 +416,7 @@ def command(
         force_whitespace: 是否强制命令后必须有指定空白符
 
     用法:
-        使用默认 `command_start`, `command_sep` 配置
+        使用默认 `command_start`, `command_sep` 配置情况下：
 
         命令 `("test",)` 可以匹配: `/test` 开头的消息
         命令 `("test", "sub")` 可以匹配: `/test.sub` 开头的消息
@@ -447,6 +451,8 @@ def command(
 class ArgumentParser(ArgParser):
     """`shell_like` 命令参数解析器，解析出错时不会退出程序。
 
+    支持 {ref}`nonebot.adapters.Message` 富文本解析。
+
     用法:
         用法与 `argparse.ArgumentParser` 相同，
         参考文档: [argparse](https://docs.python.org/3/library/argparse.html)
@@ -455,29 +461,60 @@ class ArgumentParser(ArgParser):
     if TYPE_CHECKING:
 
         @overload
-        def parse_args(
-            self, args: Optional[Sequence[Union[str, MessageSegment]]] = ...
-        ) -> Namespace:
+        def parse_known_args(
+            self,
+            args: Optional[Sequence[Union[str, MessageSegment]]] = None,
+            namespace: None = None,
+        ) -> Tuple[Namespace, List[Union[str, MessageSegment]]]:
             ...
 
         @overload
-        def parse_args(
-            self, args: Optional[Sequence[Union[str, MessageSegment]]], namespace: None
-        ) -> Namespace:
-            ...  # type: ignore[misc]
-
-        @overload
-        def parse_args(
+        def parse_known_args(
             self, args: Optional[Sequence[Union[str, MessageSegment]]], namespace: T
-        ) -> T:
+        ) -> Tuple[T, List[Union[str, MessageSegment]]]:
             ...
 
-        def parse_args(
+        @overload
+        def parse_known_args(
+            self, *, namespace: T
+        ) -> Tuple[T, List[Union[str, MessageSegment]]]:
+            ...
+
+        def parse_known_args(
             self,
             args: Optional[Sequence[Union[str, MessageSegment]]] = None,
             namespace: Optional[T] = None,
-        ) -> Union[Namespace, T]:
+        ) -> Tuple[Union[Namespace, T], List[Union[str, MessageSegment]]]:
             ...
+
+    @overload
+    def parse_args(
+        self,
+        args: Optional[Sequence[Union[str, MessageSegment]]] = None,
+        namespace: None = None,
+    ) -> Namespace:
+        ...
+
+    @overload
+    def parse_args(
+        self, args: Optional[Sequence[Union[str, MessageSegment]]], namespace: T
+    ) -> T:
+        ...
+
+    @overload
+    def parse_args(self, *, namespace: T) -> T:
+        ...
+
+    def parse_args(
+        self,
+        args: Optional[Sequence[Union[str, MessageSegment]]] = None,
+        namespace: Optional[T] = None,
+    ) -> Union[Namespace, T]:
+        result, argv = self.parse_known_args(args, namespace)
+        if argv:
+            msg = gettext("unrecognized arguments: %s")
+            self.error(msg % " ".join(map(str, argv)))
+        return cast(Union[Namespace, T], result)
 
     def _parse_optional(
         self, arg_string: Union[str, MessageSegment]
@@ -563,12 +600,16 @@ def shell_command(
     根据配置里提供的 {ref}``command_start` <nonebot.config.Config.command_start>`,
     {ref}``command_sep` <nonebot.config.Config.command_sep>` 判断消息是否为命令。
 
-    可以通过 {ref}`nonebot.params.Command` 获取匹配成功的命令（例: `("test",)`），
-    通过 {ref}`nonebot.params.RawCommand` 获取匹配成功的原始命令文本（例: `"/test"`），
-    通过 {ref}`nonebot.params.ShellCommandArgv` 获取解析前的参数列表（例: `["arg", "-h"]`），
-    通过 {ref}`nonebot.params.ShellCommandArgs` 获取解析后的参数字典（例: `{"arg": "arg", "h": True}`）。
+    可以通过 {ref}`nonebot.params.Command` 获取匹配成功的命令
+    （例: `("test",)`），
+    通过 {ref}`nonebot.params.RawCommand` 获取匹配成功的原始命令文本
+    （例: `"/test"`），
+    通过 {ref}`nonebot.params.ShellCommandArgv` 获取解析前的参数列表
+    （例: `["arg", "-h"]`），
+    通过 {ref}`nonebot.params.ShellCommandArgs` 获取解析后的参数字典
+    （例: `{"arg": "arg", "h": True}`）。
 
-    :::warning 警告
+    :::caution 警告
     如果参数解析失败，则通过 {ref}`nonebot.params.ShellCommandArgs`
     获取的将是 {ref}`nonebot.exception.ParserExit` 异常。
     :::
@@ -578,7 +619,8 @@ def shell_command(
         parser: {ref}`nonebot.rule.ArgumentParser` 对象
 
     用法:
-        使用默认 `command_start`, `command_sep` 配置，更多示例参考 `argparse` 标准库文档。
+        使用默认 `command_start`, `command_sep` 配置，更多示例参考
+        [argparse](https://docs.python.org/3/library/argparse.html) 标准库文档。
 
         ```python
         from nonebot.rule import ArgumentParser
@@ -651,10 +693,7 @@ class RegexRule:
         except Exception:
             return False
         if matched := re.search(self.regex, str(msg), self.flags):
-            state[REGEX_MATCHED] = matched.group()
-            state[REGEX_STR] = matched.group()
-            state[REGEX_GROUP] = matched.groups()
-            state[REGEX_DICT] = matched.groupdict()
+            state[REGEX_MATCHED] = matched
             return True
         else:
             return False
@@ -676,7 +715,8 @@ def regex(regex: str, flags: Union[int, re.RegexFlag] = 0) -> Rule:
     :::
 
     :::tip 提示
-    正则表达式匹配使用 `EventMessage` 的 `str` 字符串，而非 `EventMessage` 的 `PlainText` 纯文本字符串
+    正则表达式匹配使用 `EventMessage` 的 `str` 字符串，
+    而非 `EventMessage` 的 `PlainText` 纯文本字符串
     :::
     """
 

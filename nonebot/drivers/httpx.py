@@ -14,18 +14,16 @@ FrontMatter:
     sidebar_position: 3
     description: nonebot.drivers.httpx 模块
 """
-from typing import Type, AsyncGenerator
-from contextlib import asynccontextmanager
 
-from nonebot.typing import overrides
+from typing import TYPE_CHECKING
+from typing_extensions import override
+
 from nonebot.drivers.none import Driver as NoneDriver
 from nonebot.drivers import (
     Request,
     Response,
-    WebSocket,
     HTTPVersion,
-    ForwardMixin,
-    ForwardDriver,
+    HTTPClientMixin,
     combine_driver,
 )
 
@@ -33,19 +31,20 @@ try:
     import httpx
 except ModuleNotFoundError as e:  # pragma: no cover
     raise ImportError(
-        "Please install httpx by using `pip install nonebot2[httpx]`"
+        "Please install httpx first to use this driver. "
+        "Install with pip: `pip install nonebot2[httpx]`"
     ) from e
 
 
-class Mixin(ForwardMixin):
+class Mixin(HTTPClientMixin):
     """HTTPX Mixin"""
 
     @property
-    @overrides(ForwardMixin)
+    @override
     def type(self) -> str:
         return "httpx"
 
-    @overrides(ForwardMixin)
+    @override
     async def request(self, setup: Request) -> Response:
         async with httpx.AsyncClient(
             cookies=setup.cookies.jar,
@@ -70,12 +69,12 @@ class Mixin(ForwardMixin):
                 request=setup,
             )
 
-    @overrides(ForwardMixin)
-    @asynccontextmanager
-    async def websocket(self, setup: Request) -> AsyncGenerator[WebSocket, None]:
-        async with super(Mixin, self).websocket(setup) as ws:
-            yield ws
 
+if TYPE_CHECKING:
 
-Driver: Type[ForwardDriver] = combine_driver(NoneDriver, Mixin)  # type: ignore
-"""HTTPX Driver"""
+    class Driver(Mixin, NoneDriver):
+        ...
+
+else:
+    Driver = combine_driver(NoneDriver, Mixin)
+    """HTTPX Driver"""

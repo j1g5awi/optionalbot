@@ -15,33 +15,39 @@ FrontMatter:
     description: nonebot.drivers.aiohttp 模块
 """
 
-from typing import Type, AsyncGenerator
+from typing_extensions import override
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, AsyncGenerator
 
-from nonebot.typing import overrides
 from nonebot.drivers import Request, Response
 from nonebot.exception import WebSocketClosed
 from nonebot.drivers.none import Driver as NoneDriver
 from nonebot.drivers import WebSocket as BaseWebSocket
-from nonebot.drivers import HTTPVersion, ForwardMixin, ForwardDriver, combine_driver
+from nonebot.drivers import (
+    HTTPVersion,
+    HTTPClientMixin,
+    WebSocketClientMixin,
+    combine_driver,
+)
 
 try:
     import aiohttp
 except ModuleNotFoundError as e:  # pragma: no cover
     raise ImportError(
-        "Please install aiohttp first to use this driver. `pip install nonebot2[aiohttp]`"
+        "Please install aiohttp first to use this driver. "
+        "Install with pip: `pip install nonebot2[aiohttp]`"
     ) from e
 
 
-class Mixin(ForwardMixin):
+class Mixin(HTTPClientMixin, WebSocketClientMixin):
     """AIOHTTP Mixin"""
 
     @property
-    @overrides(ForwardMixin)
+    @override
     def type(self) -> str:
         return "aiohttp"
 
-    @overrides(ForwardMixin)
+    @override
     async def request(self, setup: Request) -> Response:
         if setup.version == HTTPVersion.H10:
             version = aiohttp.HttpVersion10
@@ -51,11 +57,12 @@ class Mixin(ForwardMixin):
             raise RuntimeError(f"Unsupported HTTP version: {setup.version}")
 
         timeout = aiohttp.ClientTimeout(setup.timeout)
-        files = None
+
+        data = setup.data
         if setup.files:
-            files = aiohttp.FormData()
+            data = aiohttp.FormData(data or {})
             for name, file in setup.files:
-                files.add_field(name, file[1], content_type=file[2], filename=file[0])
+                data.add_field(name, file[1], content_type=file[2], filename=file[0])
 
         cookies = {
             cookie.name: cookie.value for cookie in setup.cookies if cookie.value
@@ -66,7 +73,7 @@ class Mixin(ForwardMixin):
             async with session.request(
                 setup.method,
                 setup.url,
-                data=setup.content or setup.data or files,
+                data=setup.content or data,
                 json=setup.json,
                 headers=setup.headers,
                 timeout=timeout,
@@ -79,7 +86,7 @@ class Mixin(ForwardMixin):
                     request=setup,
                 )
 
-    @overrides(ForwardMixin)
+    @override
     @asynccontextmanager
     async def websocket(self, setup: Request) -> AsyncGenerator["WebSocket", None]:
         if setup.version == HTTPVersion.H10:
@@ -115,15 +122,15 @@ class WebSocket(BaseWebSocket):
         self.websocket = websocket
 
     @property
-    @overrides(BaseWebSocket)
+    @override
     def closed(self):
         return self.websocket.closed
 
-    @overrides(BaseWebSocket)
+    @override
     async def accept(self):
         raise NotImplementedError
 
-    @overrides(BaseWebSocket)
+    @override
     async def close(self, code: int = 1000):
         await self.websocket.close(code=code)
         await self.session.close()
@@ -134,7 +141,7 @@ class WebSocket(BaseWebSocket):
             raise WebSocketClosed(self.websocket.close_code or 1006)
         return msg
 
-    @overrides(BaseWebSocket)
+    @override
     async def receive(self) -> str:
         msg = await self._receive()
         if msg.type not in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
@@ -143,7 +150,7 @@ class WebSocket(BaseWebSocket):
             )
         return msg.data
 
-    @overrides(BaseWebSocket)
+    @override
     async def receive_text(self) -> str:
         msg = await self._receive()
         if msg.type != aiohttp.WSMsgType.TEXT:
@@ -152,7 +159,7 @@ class WebSocket(BaseWebSocket):
             )
         return msg.data
 
-    @overrides(BaseWebSocket)
+    @override
     async def receive_bytes(self) -> bytes:
         msg = await self._receive()
         if msg.type != aiohttp.WSMsgType.BINARY:
@@ -161,14 +168,20 @@ class WebSocket(BaseWebSocket):
             )
         return msg.data
 
-    @overrides(BaseWebSocket)
+    @override
     async def send_text(self, data: str) -> None:
         await self.websocket.send_str(data)
 
-    @overrides(BaseWebSocket)
+    @override
     async def send_bytes(self, data: bytes) -> None:
         await self.websocket.send_bytes(data)
 
 
-Driver: Type[ForwardDriver] = combine_driver(NoneDriver, Mixin)  # type: ignore
-"""AIOHTTP Driver"""
+if TYPE_CHECKING:
+
+    class Driver(Mixin, NoneDriver):
+        ...
+
+else:
+    Driver = combine_driver(NoneDriver, Mixin)
+    """AIOHTTP Driver"""
